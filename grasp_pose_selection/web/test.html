@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grasp 可行域</title>
+  <script>
+    (function () {
+      function ok() { window.__plotlyOk = true; }
+      var s = document.createElement("script");
+      s.src = "/plotly.min.js";
+      s.onload = ok;
+      s.onerror = function () {
+        var s2 = document.createElement("script");
+        s2.src = "https://cdn.plot.ly/plotly-2.27.0.min.js";
+        s2.onload = ok;
+        s2.onerror = function () { window.__plotlyOk = false; };
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4d;
+      --text: #e6edf3;
+      --muted: #8b9cb3;
+      --accent: #58a6ff;
+      --danger: #f85149;
+      --ok: #3fb950;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) 1fr;
+      gap: 0;
+      min-height: 100vh;
+    }
+    @media (max-width: 960px) {
+      .app { grid-template-columns: 1fr; }
+    }
+    .sidebar {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+    .main {
+      padding: 16px 20px;
+      overflow-y: auto;
+    }
+    h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 4px; }
+    .hint { font-size: 0.8rem; color: var(--muted); margin: 0 0 14px; line-height: 1.4; }
+    .card {
+      background: #151c28;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .card h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 10px;
+    }
+    .row { margin-bottom: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    label { color: var(--muted); font-size: 0.85rem; min-width: 7.5rem; }
+    input[type="number"], input[type="text"], select, textarea {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 0.9rem;
+    }
+    input[type="number"] { width: 5.2rem; }
+    textarea { width: 100%; min-height: 88px; font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
+    .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+    .tabs button {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #0d1117;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .tabs button.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .obj-panel { display: none; }
+    .obj-panel.on { display: block; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: #21262d; color: var(--text); border: 1px solid var(--border); }
+    .status {
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+      background: #151c28;
+      white-space: pre-wrap;
+    }
+    .status.info { border-color: #388bfd66; }
+    .status.ok { border-color: var(--ok); color: #7ee787; }
+    .status.err { border-color: var(--danger); color: #ff7b72; }
+    .plots { display: flex; flex-direction: column; gap: 16px; }
+    .plot-wrap {
+      background: #151c28;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      min-height: 320px;
+    }
+    .plot-wrap h3 { margin: 0 0 8px; font-size: 0.9rem; color: var(--muted); font-weight: 500; }
+    .plot-box { min-height: 280px; }
+    .placeholder {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 40px 16px;
+      text-align: center;
+    }
+    .slice-bar { margin-bottom: 8px; }
+    .slice-bar select { min-width: 12rem; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>Grasp 可行域</h1>
+      <p class="hint">先在本目录运行 <code style="background:#21262d;padding:2px 6px;border-radius:4px">python server.py</code>，再用浏览器打开本页（不要 file://）。</p>
+
+      <div class="card">
+        <h2>机械臂</h2>
+        <div class="row"><label>L1 / L2</label><input id="link1" type="number" step="0.1" value="2" /><input id="link2" type="number" step="0.1" value="2" /></div>
+        <div class="row"><label>表面采样</label><span style="font-size:0.8rem;color:var(--muted)">机</span><input id="robot_surface_n" type="number" value="32" /><span style="font-size:0.8rem;color:var(--muted)">物</span><input id="obj_surface_n" type="number" value="48" /></div>
+        <div class="row"><label>collision_margin</label><input id="collision_margin" type="number" step="0.01" value="0" /></div>
+      </div>
+
+      <div class="card">
+        <h2>物体（物体系）</h2>
+        <div class="tabs" id="obj_tabs">
+          <button type="button" class="active" data-tab="box">矩形</button>
+          <button type="button" data-tab="tri">三角形</button>
+        </div>
+        <div id="obj_box" class="obj-panel on">
+          <div class="row"><label>宽 / 高</label><input id="box_w" type="number" step="0.05" value="0.8" /><input id="box_h" type="number" step="0.05" value="0.8" /></div>
+        </div>
+        <div id="obj_tri" class="obj-panel">
+          <div class="row"><label>p0</label><input id="t0x" type="number" value="0" /><input id="t0y" type="number" value="0" /></div>
+          <div class="row"><label>p1</label><input id="t1x" type="number" value="0.55" /><input id="t1y" type="number" value="0" /></div>
+          <div class="row"><label>p2</label><input id="t2x" type="number" value="0.25" /><input id="t2y" type="number" value="0.45" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>抓取（接触点 + 内向法向）</h2>
+        <div class="row"><label>contact</label><input id="gcx" type="number" step="0.05" value="0" /><input id="gcy" type="number" step="0.05" value="0.4" /></div>
+        <div class="row"><label>normal</label><input id="gnx" type="number" step="0.1" value="0" /><input id="gny" type="number" step="0.1" value="-1" /></div>
+      </div>
+
+      <div class="card">
+        <h2>障碍物 JSON</h2>
+        <textarea id="obstacles_json">[
+  {"type": "circle", "cx": -2.2, "cy": -1.8, "r": 0.5},
+  {"type": "box", "cx": 1.5, "cy": 1.0, "w": 0.5, "h": 0.5}
+]</textarea>
+        <div class="actions">
+          <button type="button" class="btn btn-secondary" id="btn_obstacle_template">插入模板</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>扫掠与场</h2>
+        <div class="row"><label>q1 范围</label><input id="q1min" type="number" step="0.1" value="-3.14159" /><input id="q1max" type="number" step="0.1" value="3.14159" /></div>
+        <div class="row"><label>q1 采样</label><input id="q1n" type="number" value="48" /></div>
+        <div class="row"><label>q2 范围</label><input id="q2min" type="number" step="0.1" value="-3.14159" /><input id="q2max" type="number" step="0.1" value="3.14159" /></div>
+        <div class="row"><label>q2 采样</label><input id="q2n" type="number" value="48" /></div>
+        <div class="row"><label>场 nx ny nz</label><input id="fnx" type="number" value="40" /><input id="fny" type="number" value="40" /><input id="fnz" type="number" value="20" /></div>
+        <div class="row"><label>场平滑</label><input id="fsmooth" type="number" value="0" /></div>
+        <div class="row"><label>沉积</label>
+          <select id="fdeposit"><option value="cell">cell</option><option value="nearest">nearest</option></select>
+        </div>
+        <div class="row"><label>theta 切片</label><input id="slice_thetas" type="text" style="flex:1;min-width:10rem" value="0, 0.9, -0.9" /></div>
+        <div class="row" id="slice_preview" style="font-size:0.8rem;color:var(--muted)"></div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="btn_compute">计算</button>
+        <button type="button" class="btn btn-secondary" id="btn_defaults">载入默认</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div id="status" class="status info">就绪。点击「计算」或先「载入默认」。</div>
+      <div class="plots">
+        <div class="plot-wrap">
+          <h3>关节空间 J(q₁, q₂)</h3>
+          <div id="plot_joint" class="plot-box"><div class="placeholder">结果将显示在此</div></div>
+        </div>
+        <div class="plot-wrap">
+          <h3>SE(2) 切片 F(x, y)</h3>
+          <div class="slice-bar row">
+            <label>θ 层</label>
+            <select id="slice_sel"></select>
+          </div>
+          <div id="plot_se2" class="plot-box"><div class="placeholder">选择 θ 层后显示</div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function setStatus(kind, text) {
+      const el = $("status");
+      el.className = "status " + (kind || "info");
+      el.textContent = text;
+    }
+
+    function objType() {
+      return $("obj_tabs").querySelector(".active").dataset.tab === "tri" ? "triangle" : "box";
+    }
+
+    $("obj_tabs").onclick = (e) => {
+      const b = e.target.closest("button[data-tab]");
+      if (!b) return;
+      $("obj_tabs").querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+      b.classList.add("active");
+      const t = b.dataset.tab;
+      $("obj_box").classList.toggle("on", t === "box");
+      $("obj_tri").classList.toggle("on", t === "tri");
+    };
+
+    function parseObstacles() {
+      const raw = $("obstacles_json").value.trim();
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) throw new Error("障碍物必须是 JSON 数组");
+      for (const o of arr) {
+        if (!o || typeof o.type !== "string") throw new Error("障碍项缺少 type");
+        if (o.type === "circle") {
+          if (["cx", "cy", "r"].some((k) => !(k in o))) throw new Error("circle 需要 cx,cy,r");
+        } else if (o.type === "box") {
+          if (["cx", "cy", "w", "h"].some((k) => !(k in o))) throw new Error("box 需要 cx,cy,w,h");
+        } else throw new Error("未知障碍 type: " + o.type);
+      }
+      return arr;
+    }
+
+    function validateAndBuildPayload() {
+      const nx = parseInt($("fnx").value, 10), ny = parseInt($("fny").value, 10), nz = parseInt($("fnz").value, 10);
+      const q1n = parseInt($("q1n").value, 10), q2n = parseInt($("q2n").value, 10);
+      if (nx < 2 || ny < 2 || nz < 2) throw new Error("场 nx,ny,nz 均需 >= 2");
+      if (q1n < 2 || q2n < 2) throw new Error("q1_n / q2_n 均需 >= 2");
+      const gnx = parseFloat($("gnx").value), gny = parseFloat($("gny").value);
+      if (gnx * gnx + gny * gny < 1e-12) throw new Error("抓取法向不能为零向量");
+      const slice_thetas = $("slice_thetas").value.split(",").map((s) => parseFloat(s.trim())).filter((x) => !isNaN(x));
+      if (slice_thetas.length === 0) throw new Error("至少填写一个 theta 切片");
+      $("slice_preview").textContent = "解析 theta: " + slice_thetas.map((t) => t.toFixed(3)).join(", ");
+      const obstacles = parseObstacles();
+      const ot = objType();
+      const obj = ot === "box"
+        ? { type: "box", box_w: parseFloat($("box_w").value), box_h: parseFloat($("box_h").value) }
+        : {
+            type: "triangle",
+            tri: [
+              [parseFloat($("t0x").value), parseFloat($("t0y").value)],
+              [parseFloat($("t1x").value), parseFloat($("t1y").value)],
+              [parseFloat($("t2x").value), parseFloat($("t2y").value)],
+            ],
+          };
+      return {
+        link1: parseFloat($("link1").value),
+        link2: parseFloat($("link2").value),
+        robot_surface_n: parseInt($("robot_surface_n").value, 10),
+        obj_surface_n: parseInt($("obj_surface_n").value, 10),
+        collision_margin: parseFloat($("collision_margin").value),
+        q1_min: parseFloat($("q1min").value),
+        q1_max: parseFloat($("q1max").value),
+        q1_n: q1n,
+        q2_min: parseFloat($("q2min").value),
+        q2_max: parseFloat($("q2max").value),
+        q2_n: q2n,
+        field_nx: nx,
+        field_ny: ny,
+        field_nz: nz,
+        field_smooth: parseInt($("fsmooth").value, 10),
+        field_deposit: $("fdeposit").value,
+        object: obj,
+        grasp: { contact: [parseFloat($("gcx").value), parseFloat($("gcy").value)], normal: [gnx, gny] },
+        obstacles,
+        slice_thetas,
+      };
+    }
+
+    function zJoint(J, q1, q2) {
+      return q2.map((_, j) => q1.map((_, i) => J[i][j]));
+    }
+
+    function zSlice(F, x, y) {
+      return y.map((_, j) => x.map((_, i) => F[i][j]));
+    }
+
+    function ensurePlotly() {
+      if (typeof Plotly !== "undefined") return true;
+      if (window.__plotlyOk === undefined)
+        setStatus("err", "Plotly 仍在加载，请稍后重试。");
+      else
+        setStatus("err", "Plotly 未加载：请联网或将 plotly.min.js 放到 web 目录（访问 /plotly.min.js）后刷新。");
+      return false;
+    }
+
+    function clearPlotPlaceholders() {
+      $("plot_joint").innerHTML = "";
+      $("plot_se2").innerHTML = "";
+    }
+
+    function drawJoint(resp) {
+      const z = zJoint(resp.J, resp.q1_coords, resp.q2_coords);
+      Plotly.newPlot("plot_joint", [{
+        z, x: resp.q1_coords, y: resp.q2_coords, type: "heatmap",
+        colorscale: "RdYlGn", zmid: 0, zmin: -0.5, zmax: 0.5,
+        colorbar: { title: "clearance" },
+      }], {
+        paper_bgcolor: "#151c28", plot_bgcolor: "#0d1117",
+        font: { color: "#e6edf3" },
+        title: { text: "J(q₁,q₂)", font: { size: 14 } },
+        xaxis: { title: "q₁" }, yaxis: { title: "q₂" },
+        margin: { t: 40, r: 20, b: 50, l: 60 },
+      }, { responsive: true });
+    }
+
+    function fillSliceSelect(resp) {
+      const sel = $("slice_sel");
+      sel.innerHTML = "";
+      resp.slices.forEach((s, i) => {
+        const o = document.createElement("option");
+        o.value = String(i);
+        o.textContent = "θ_req=" + s.theta_request.toFixed(3) + " →网格 " + s.theta_grid.toFixed(3);
+        sel.appendChild(o);
+      });
+      sel.onchange = () => drawSe2(resp, parseInt(sel.value, 10));
+    }
+
+    function drawSe2(resp, idx) {
+      const s = resp.slices[idx];
+      const z = zSlice(s.F, resp.x_coords, resp.y_coords);
+      Plotly.newPlot("plot_se2", [{
+        z, x: resp.x_coords, y: resp.y_coords, type: "heatmap",
+        colorscale: "RdYlGn", zmid: 0, zmin: -0.5, zmax: 0.5,
+        colorbar: { title: "clearance" },
+      }], {
+        paper_bgcolor: "#151c28", plot_bgcolor: "#0d1117",
+        font: { color: "#e6edf3" },
+        title: { text: "F(x,y) @ θ=" + s.theta_grid.toFixed(3), font: { size: 14 } },
+        xaxis: { title: "x" }, yaxis: { title: "y" },
+        margin: { t: 40, r: 20, b: 50, l: 60 },
+      }, { responsive: true });
+    }
+
+    $("btn_obstacle_template").onclick = () => {
+      $("obstacles_json").value = JSON.stringify([
+        { type: "circle", cx: -2.2, cy: -1.8, r: 0.5 },
+        { type: "box", cx: 1.5, cy: 1.0, w: 0.5, h: 0.5 },
+      ], null, 2);
+    };
+
+    $("btn_compute").onclick = async () => {
+      try {
+        if (window.__plotlyOk === false) {
+          setStatus("err", "Plotly 脚本加载失败。");
+          return;
+        }
+        if (!ensurePlotly()) return;
+        const payload = validateAndBuildPayload();
+        setStatus("info", "计算中…（关节网格 " + payload.q1_n + "×" + payload.q2_n + "，场 " + payload.field_nx + "×" + payload.field_ny + "×" + payload.field_nz + "）");
+        const r = await fetch("/api/compute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        let body;
+        const ct = r.headers.get("content-type") || "";
+        if (ct.includes("application/json")) body = await r.json();
+        else body = { ok: false, error: await r.text() || ("HTTP " + r.status) };
+        if (!body.ok) {
+          setStatus("err", "服务端: " + (body.error || JSON.stringify(body)));
+          return;
+        }
+        const resp = body.data;
+        const jn = resp.q1_coords.length * resp.q2_coords.length;
+        setStatus("ok", "完成。关节可行格: " + resp.feasible_joint_cells + " / " + jn + " · SE(2) 可行格: " + resp.feasible_se2_cells + " / " + resp.se2_grid_size);
+        clearPlotPlaceholders();
+        drawJoint(resp);
+        fillSliceSelect(resp);
+        drawSe2(resp, 0);
+      } catch (e) {
+        setStatus("err", "前端: " + e.message);
+      }
+    };
+
+    $("btn_defaults").onclick = async () => {
+      try {
+        const r = await fetch("/api/defaults");
+        const body = await r.json();
+        if (!body.ok) {
+          setStatus("err", "默认参数: " + (body.error || ""));
+          return;
+        }
+        const d = body.data;
+        $("obstacles_json").value = JSON.stringify(d.obstacles, null, 2);
+        $("slice_thetas").value = d.slice_thetas.join(", ");
+        $("link1").value = d.link1;
+        $("link2").value = d.link2;
+        $("robot_surface_n").value = d.robot_surface_n;
+        $("obj_surface_n").value = d.obj_surface_n;
+        $("collision_margin").value = d.collision_margin;
+        $("q1min").value = d.q1_min;
+        $("q1max").value = d.q1_max;
+        $("q1n").value = d.q1_n;
+        $("q2min").value = d.q2_min;
+        $("q2max").value = d.q2_max;
+        $("q2n").value = d.q2_n;
+        $("fnx").value = d.field_nx;
+        $("fny").value = d.field_ny;
+        $("fnz").value = d.field_nz;
+        $("fsmooth").value = d.field_smooth;
+        $("fdeposit").value = d.field_deposit;
+        if (d.object.type === "box") {
+          $("obj_tabs").querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+          $("obj_tabs").querySelector('button[data-tab="box"]').classList.add("active");
+          $("obj_box").classList.add("on");
+          $("obj_tri").classList.remove("on");
+          $("box_w").value = d.object.box_w;
+          $("box_h").value = d.object.box_h;
+        } else {
+          $("obj_tabs").querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+          $("obj_tabs").querySelector('button[data-tab="tri"]').classList.add("active");
+          $("obj_tri").classList.add("on");
+          $("obj_box").classList.remove("on");
+          const t = d.object.tri;
+          $("t0x").value = t[0][0]; $("t0y").value = t[0][1];
+          $("t1x").value = t[1][0]; $("t1y").value = t[1][1];
+          $("t2x").value = t[2][0]; $("t2y").value = t[2][1];
+        }
+        $("gcx").value = d.grasp.contact[0];
+        $("gcy").value = d.grasp.contact[1];
+        $("gnx").value = d.grasp.normal[0];
+        $("gny").value = d.grasp.normal[1];
+        setStatus("info", "已载入默认参数，可点「计算」。");
+      } catch (e) {
+        setStatus("err", "载入默认失败: " + e.message);
+      }
+    };
+  </script>
+</body>
+</html>

@@ -9,34 +9,18 @@ import { Workspace2D } from "./components/Workspace2D";
 import { objectPoseFromJoints, wrapPi } from "./lib/fk";
 import { trajectoryFromJointResult } from "./lib/trajectory";
 import { useAppStore } from "./store/appStore";
-import type { Payload } from "./types";
 
-function useDebouncedPreview(payload: Payload, delay: number) {
-  const setResult = useAppStore((s) => s.setResult);
-  const setStatus = useAppStore((s) => s.setStatus);
-  const setTrajectory = useAppStore((s) => s.setTrajectory);
-  const acRef = useRef<AbortController | null>(null);
-  const payloadJson = JSON.stringify(payload);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      if (acRef.current) acRef.current.abort();
-      const ac = new AbortController();
-      acRef.current = ac;
-      computePreview(JSON.parse(payloadJson) as Payload, ac.signal)
-        .then((out) => {
-          setResult(out.data, true);
-          const tr = trajectoryFromJointResult(out.data);
-          setTrajectory(tr.q1, tr.q2);
-          setStatus("info", "预览完成（低分辨率）");
-        })
-        .catch((e: Error) => {
-          if (e.name === "AbortError") return;
-          setStatus("err", "预览失败: " + e.message);
-        });
-    }, delay);
-    return () => clearTimeout(t);
-  }, [payloadJson, delay, setResult, setStatus, setTrajectory]);
+function previewErrorHint(msg: string): string {
+  const m = msg.toLowerCase();
+  if (
+    m.includes("failed to fetch") ||
+    m.includes("networkerror") ||
+    m.includes("load failed") ||
+    m.includes("network request failed")
+  ) {
+    return "网络失败：免费托管可能正在冷启动（约 30–120 秒）或计算超时。可先在新标签打开后端的 /api/defaults 唤醒服务，再点「预览」重试。";
+  }
+  return msg;
 }
 
 export default function App() {
@@ -56,6 +40,7 @@ export default function App() {
   const setClearanceInspect = useAppStore((s) => s.setClearanceInspect);
 
   const payloadJson = useMemo(() => JSON.stringify(payload), [payload]);
+  const previewAcRef = useRef<AbortController | null>(null);
 
   const onJointCellPick = useCallback(
     (q1: number, q2: number, meta: { feasible: boolean; i: number; j: number }) => {
@@ -63,8 +48,6 @@ export default function App() {
     },
     [setJointPick],
   );
-
-  useDebouncedPreview(payload, 320);
 
   useEffect(() => {
     if (!jointPick || !result?.th_coords?.length) return;
@@ -100,6 +83,24 @@ export default function App() {
       ac.abort();
     };
   }, [jointPick, payloadJson, setClearanceInspect]);
+
+  const onPreview = useCallback(() => {
+    if (previewAcRef.current) previewAcRef.current.abort();
+    const ac = new AbortController();
+    previewAcRef.current = ac;
+    setStatus("info", "正在预览（低分辨率，请稍候）…");
+    computePreview(payload, ac.signal)
+      .then((out) => {
+        setResult(out.data, true);
+        const tr = trajectoryFromJointResult(out.data);
+        setTrajectory(tr.q1, tr.q2);
+        setStatus("info", "预览完成（低分辨率）");
+      })
+      .catch((e: Error) => {
+        if (e.name === "AbortError") return;
+        setStatus("err", "预览失败: " + previewErrorHint(e.message));
+      });
+  }, [payload, setResult, setStatus, setTrajectory]);
 
   const onFull = useCallback(() => {
     computeFull(payload)
@@ -149,6 +150,9 @@ export default function App() {
       <header className="app-top">
         <h1>Grasp 交互演示</h1>
         <div className="app-top-actions">
+          <button type="button" className="btn" onClick={onPreview}>
+            预览
+          </button>
           <button type="button" className="btn btn-primary" onClick={onFull}>
             全量计算
           </button>
@@ -208,7 +212,9 @@ export default function App() {
                   <SE2SlicePanel />
                 </>
               ) : (
-                <div className="placeholder-block">等待计算…</div>
+                <div className="placeholder-block">
+                  点击顶部「预览」生成低分辨率场，或点「全量计算」。
+                </div>
               )}
             </div>
           </div>

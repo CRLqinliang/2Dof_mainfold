@@ -130,13 +130,14 @@ def obstacles_from_payload(items: List[Dict[str, Any]], device: torch.device) ->
 def preview_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     """降低网格与采样密度，用于拖动时的快速预览。"""
     p = copy.deepcopy(payload)
-    p["q1_n"] = max(2, min(int(p["q1_n"]), 28))
-    p["q2_n"] = max(2, min(int(p["q2_n"]), 28))
-    p["field_nx"] = max(2, min(int(p["field_nx"]), 22))
-    p["field_ny"] = max(2, min(int(p["field_ny"]), 22))
-    p["field_nz"] = max(2, min(int(p["field_nz"]), 14))
-    p["robot_surface_n"] = max(8, min(int(p["robot_surface_n"]), 28))
-    p["obj_surface_n"] = max(12, min(int(p["obj_surface_n"]), 36))
+    # 上限再压低，便于 Render 免费实例在可接受时间内返回
+    p["q1_n"] = max(2, min(int(p["q1_n"]), 14))
+    p["q2_n"] = max(2, min(int(p["q2_n"]), 14))
+    p["field_nx"] = max(2, min(int(p["field_nx"]), 10))
+    p["field_ny"] = max(2, min(int(p["field_ny"]), 10))
+    p["field_nz"] = max(2, min(int(p["field_nz"]), 8))
+    p["robot_surface_n"] = max(8, min(int(p["robot_surface_n"]), 12))
+    p["obj_surface_n"] = max(12, min(int(p["obj_surface_n"]), 16))
     return p
 
 

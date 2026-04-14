@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
   const dev = mode === "development";
   const base = dev
     ? "/"
-    : normalizeBase(env.VITE_BASE_PATH && env.VITE_BASE_PATH.length > 0 ? env.VITE_BASE_PATH : "/app/");
+    : normalizeBase(env.VITE_BASE_PATH && env.VITE_BASE_PATH.length > 0 ? env.VITE_BASE_PATH : "/");
 
   return {
     plugins: [react()],

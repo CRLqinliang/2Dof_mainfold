@@ -1,0 +1,48 @@
+name: Deploy grasp webapp to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "grasp_pose_selection/webapp/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-grasp-webapp
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: grasp_pose_selection/webapp/package-lock.json
+      - name: Build
+        working-directory: grasp_pose_selection/webapp
+        env:
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: npm ci && npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: grasp_pose_selection/webapp/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

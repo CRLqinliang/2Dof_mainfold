@@ -1,6 +1,10 @@
 import type { ClearanceInspect, ComputeErr, ComputeOk, Payload } from "../types";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+const RAW = import.meta.env.VITE_API_BASE_URL ?? "";
+if (import.meta.env.PROD && RAW.trim().length === 0) {
+  throw new Error("生产构建必须设置环境变量 VITE_API_BASE_URL（后端 API 根地址，如 https://xxx.onrender.com）");
+}
+const API_BASE = RAW.replace(/\/+$/, "");
 
 function apiUrl(path: string) {
   return `${API_BASE}${path}`;

@@ -216,8 +216,9 @@ export default function App() {
       </div>
 
       <p className="app-foot">
-        开发：<code>cd webapp && npm i && npm run dev</code>，另开终端 <code>python server.py</code>。生产：{" "}
-        <code>npm run build</code> 后打开 <code>/app/</code>。
+        开发：<code>cd webapp && npm i && npm run dev</code>，另开终端在 <code>web/</code> 下{" "}
+        <code>python server.py</code>。生产静态页需设置 <code>VITE_API_BASE_URL</code> 指向已部署的后端，并用{" "}
+        <code>VITE_BASE_PATH</code> 匹配 GitHub Pages 子路径。
       </p>
     </div>
   );

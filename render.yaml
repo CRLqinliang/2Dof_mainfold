@@ -1,0 +1,12 @@
+# 放在仓库根目录，便于 Render「Blueprint」从 GitHub 自动发现。
+# 服务实际在子目录 grasp_pose_selection 内构建与启动。
+services:
+  - type: web
+    name: grasp-pose-api
+    runtime: python
+    rootDir: grasp_pose_selection
+    buildCommand: pip install -r requirements.txt
+    startCommand: RENDER=1 python web/server.py
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
